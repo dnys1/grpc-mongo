@@ -1,14 +1,32 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/dnys1/grpc-mongo/server/model/blogpb"
 	"google.golang.org/grpc"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
+
+// The master database collection from MongoDB
+var collection *mongo.Collection
+
+// A mapping of a blog item to MongoDB types
+type blogItem struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty"`
+	AuthorID string             `bson:"author_id,omitempty"`
+	Title    string             `bson:"title,omitempty"`
+	Content  string             `bson:"content,omitempty"`
+}
 
 type server struct {
 	blogpb.UnimplementedBlogServiceServer
@@ -22,6 +40,39 @@ func main() {
 	// If we crash the Go code, we get the filename and line number
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	// Create MongoDB client
+	log.Println("Connecting to MongoDB...")
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	if err != nil {
+		log.Fatalf("Error instantiating MongoDB client: %v", err)
+	}
+
+	// Connect to MongoDB client
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatalf("Error connecting to MongoDB instance: %v", err)
+	}
+
+	defer func() {
+		log.Println("Closing MongoDB connection...")
+		if err = client.Disconnect(ctx); err != nil {
+			log.Fatalf("Error closing MongoDB connection: %v", err)
+		}
+		log.Println("MongoDB connection closed successfully.")
+	}()
+
+	// Ping the MongoDB server
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Fatalf("Error pinging the MongoDB instance: %v", err)
+	}
+
+	// Open MongoDB collection
+	collection = client.Database("mydb").Collection("blog")
+
+	// Connect to gRPC service
+	log.Println("Connecting to gRPC service...")
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -48,4 +99,5 @@ func main() {
 	log.Println("Shutting down server...")
 	grpcServer.Stop()
 	lis.Close()
+	log.Println("Server shut down successfully.")
 }
