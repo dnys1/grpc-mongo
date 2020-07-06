@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+// Service for creating, reading, updating, and deleting Blog items.
 package blog;
 option go_package = "github.com/dnys1/grpc-mongo/server/model/blogpb";
 
@@ -10,4 +11,20 @@ message Blog {
     string content = 4;
 }
 
-service BlogService {}
+// A request with the blog to create in the database
+message CreateBlogRequest {
+    // The blog item to create in the database
+    Blog blog = 1;
+}
+
+// A response with the newly-created blog
+message CreateBlogResponse {
+    // The newly created blog with a set ID field
+    Blog blog = 1;
+}
+
+// Service for interacting with the Blog DB using a CRUD-style API.
+service BlogService {
+    // Create a blog in the database
+    rpc CreateBlog (CreateBlogRequest) returns (CreateBlogResponse);
+}

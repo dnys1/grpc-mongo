@@ -10,6 +10,8 @@ import (
 
 	"github.com/dnys1/grpc-mongo/server/model/blogpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -34,6 +36,38 @@ type server struct {
 
 func newServer() *server {
 	return &server{}
+}
+
+func (*server) CreateBlog(ctx context.Context, req *blogpb.CreateBlogRequest) (*blogpb.CreateBlogResponse, error) {
+	blog := req.GetBlog()
+	log.Printf("CreateBlog: Invoked with blog item %v", blog)
+
+	data := blogItem{
+		AuthorID: blog.GetAuthorId(),
+		Title:    blog.GetTitle(),
+		Content:  blog.GetContent(),
+	}
+
+	res, err := collection.InsertOne(ctx, data)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Error inserting document %v: %v", data, err)
+	}
+
+	oid, ok := res.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "Error converting to OID: %v", err)
+	}
+
+	log.Printf("CreateBlog: Blog item successfully created (id %s)", oid.Hex())
+
+	return &blogpb.CreateBlogResponse{
+		Blog: &blogpb.Blog{
+			Id:       oid.Hex(),
+			AuthorId: blog.GetAuthorId(),
+			Title:    blog.GetTitle(),
+			Content:  blog.GetContent(),
+		},
+	}, nil
 }
 
 func main() {
