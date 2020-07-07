@@ -11,6 +11,7 @@ import (
 	"github.com/dnys1/grpc-mongo/server/model/blogpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -163,6 +164,37 @@ func (*server) DeleteBlog(ctx context.Context, req *blogpb.DeleteBlogRequest) (*
 	}, nil
 }
 
+func (*server) ListBlogs(req *blogpb.ListBlogsRequest, stream blogpb.BlogService_ListBlogsServer) error {
+	log.Println("ListBlog: Invoked with no parameters")
+
+	cur, err := collection.Find(context.Background(), bson.D{})
+	if err != nil {
+		return status.Errorf(codes.Internal, "Error listing blogs: %v", err)
+	}
+	defer cur.Close(context.Background())
+
+	for cur.Next(context.Background()) {
+		data := &blogItem{}
+		if err := cur.Decode(data); err != nil {
+			return status.Errorf(codes.Internal, "Error decoding data: %v", err)
+		}
+
+		blog := &blogpb.Blog{
+			Id:       data.ID.Hex(),
+			AuthorId: data.AuthorID,
+			Title:    data.Title,
+			Content:  data.Content,
+		}
+		stream.Send(&blogpb.ListBlogsResponse{Blog: blog})
+	}
+
+	if err := cur.Err(); err != nil {
+		return status.Errorf(codes.Internal, "Error in database lookup: %v", err)
+	}
+
+	return nil
+}
+
 func main() {
 	// If we crash the Go code, we get the filename and line number
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -207,6 +239,9 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	blogpb.RegisterBlogServiceServer(grpcServer, newServer())
+
+	// Register reflection service on gRPC server
+	reflection.Register(grpcServer)
 
 	go func() {
 		log.Println("Starting server on port 50051...")

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"time"
 
@@ -40,8 +41,8 @@ func main() {
 		log.Fatalf("Error updating blog: %v", err)
 	}
 
-	if err := readBlog(c, id); err != nil {
-		log.Fatalf("Error reading blog: %v", err)
+	if err := listBlogs(c, id); err != nil {
+		log.Fatalf("Error listing blogs: %v", err)
 	}
 }
 
@@ -129,6 +130,31 @@ func deleteBlog(c blogpb.BlogServiceClient, id string) error {
 	log.Printf("Received DeleteBlogResponse: %v", st)
 	if st != blogpb.DeleteBlogResponse_DELETED {
 		return errors.New("Error deleting blog")
+	}
+
+	return nil
+}
+
+func listBlogs(c blogpb.BlogServiceClient, id string) error {
+	req := &blogpb.ListBlogsRequest{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stream, err := c.ListBlogs(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	for {
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Error while reading stream: %v", err)
+		}
+		log.Printf("Found blog: %s", res.GetBlog())
 	}
 
 	return nil

@@ -87,6 +87,15 @@ message DeleteBlogResponse {
     }
 }
 
+// A request to list blogs in the database.
+message ListBlogsRequest {}
+
+// A response with all the blogs in the database.
+message ListBlogsResponse {
+    // A blog in the database.
+    Blog blog = 1;
+}
+
 // Service for interacting with the Blog DB using a CRUD-style API.
 service BlogService {
     // Create a blog in the database
@@ -100,4 +109,7 @@ service BlogService {
 
     // Delete a blog from the database
     rpc DeleteBlog (DeleteBlogRequest) returns (DeleteBlogResponse);
+
+    // List the blogs on the server
+    rpc ListBlogs (ListBlogsRequest) returns (stream ListBlogsResponse);
 }
