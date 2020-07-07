@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -50,7 +51,7 @@ func (*server) CreateBlog(ctx context.Context, req *blogpb.CreateBlogRequest) (*
 
 	res, err := collection.InsertOne(ctx, data)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Error inserting document %v: %v", data, err)
+		return nil, status.Errorf(codes.Internal, "Error inserting document: %v", data, err)
 	}
 
 	oid, ok := res.InsertedID.(primitive.ObjectID)
@@ -66,6 +67,35 @@ func (*server) CreateBlog(ctx context.Context, req *blogpb.CreateBlogRequest) (*
 			AuthorId: blog.GetAuthorId(),
 			Title:    blog.GetTitle(),
 			Content:  blog.GetContent(),
+		},
+	}, nil
+}
+
+func (*server) ReadBlog(ctx context.Context, req *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
+	id := req.GetBlogId()
+	log.Printf("ReadBlog: Invoked with id %s", id)
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
+	}
+
+	data := &blogItem{}
+	filter := bson.M{"_id": oid}
+
+	doc := collection.FindOne(ctx, filter)
+	if err := doc.Decode(data); err != nil {
+		return nil, status.Errorf(codes.NotFound, "Document with id %s not found: %v", id, err)
+	}
+
+	log.Println("ReadBlog: Blog successfully found")
+
+	return &blogpb.ReadBlogResponse{
+		Blog: &blogpb.Blog{
+			Id:       id,
+			AuthorId: data.AuthorID,
+			Title:    data.Title,
+			Content:  data.Content,
 		},
 	}, nil
 }

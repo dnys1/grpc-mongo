@@ -18,12 +18,17 @@ func main() {
 
 	c := blogpb.NewBlogServiceClient(cc)
 
-	if err := createBlog(c); err != nil {
+	id, err := createBlog(c)
+	if err != nil {
 		log.Fatalf("Error creating blog: %v", err)
+	}
+
+	if err := readBlog(c, id); err != nil {
+		log.Fatalf("Error reading blog: %v", err)
 	}
 }
 
-func createBlog(c blogpb.BlogServiceClient) error {
+func createBlog(c blogpb.BlogServiceClient) (string, error) {
 	req := &blogpb.CreateBlogRequest{
 		Blog: &blogpb.Blog{
 			AuthorId: "Dillon Nys",
@@ -37,9 +42,28 @@ func createBlog(c blogpb.BlogServiceClient) error {
 
 	res, err := c.CreateBlog(ctx, req)
 	if err != nil {
+		return "", err
+	}
+
+	blog := res.GetBlog()
+	log.Printf("Received CreateBlog response: %v", blog)
+	return blog.GetId(), nil
+}
+
+func readBlog(c blogpb.BlogServiceClient, id string) error {
+	req := &blogpb.ReadBlogRequest{
+		BlogId: id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := c.ReadBlog(ctx, req)
+	if err != nil {
 		return err
 	}
 
-	log.Printf("Received CreateBlog response: %v", res.GetBlog())
+	blog := res.GetBlog()
+	log.Printf("Received ReadBlogResponse: %v", blog)
 	return nil
 }

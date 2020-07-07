@@ -23,8 +23,37 @@ message CreateBlogResponse {
     Blog blog = 1;
 }
 
+// A request with the blog id to read from the database
+message ReadBlogRequest {
+    // The blog's database identifier
+    string blog_id = 1;
+}
+
+// A response with the blog item and a status code.
+message ReadBlogResponse {
+    // The blog, if successfully found in the database.
+    // This will be null if not found.
+    Blog blog = 1;
+    
+    // The status of reading the blog from the database.
+    // This will be NOT_FOUND when the blog couldn't be 
+    // retrieved or FOUND when it could. Defaults to UNKNOWN
+    // in cases of internal errors or unimplemented code.
+    ReadStatus status = 2;
+
+    // The status of reading the blog from the database.
+    enum ReadStatus {
+        UNKNOWN = 0;
+        NOT_FOUND = 1;
+        FOUND = 2;
+    }
+}
+
 // Service for interacting with the Blog DB using a CRUD-style API.
 service BlogService {
     // Create a blog in the database
     rpc CreateBlog (CreateBlogRequest) returns (CreateBlogResponse);
+
+    // Read a blog from the database
+    rpc ReadBlog(ReadBlogRequest) returns (ReadBlogResponse);
 }
