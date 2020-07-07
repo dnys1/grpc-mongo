@@ -4,6 +4,7 @@ syntax = "proto3";
 package blog;
 option go_package = "github.com/dnys1/grpc-mongo/internal/model/blogpb";
 
+// From https://github.com/googleapis/googleapis
 import "google/api/annotations.proto";
 
 message Blog {
