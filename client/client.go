@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
@@ -21,6 +22,14 @@ func main() {
 	id, err := createBlog(c)
 	if err != nil {
 		log.Fatalf("Error creating blog: %v", err)
+	}
+
+	if err := readBlog(c, id); err != nil {
+		log.Fatalf("Error reading blog: %v", err)
+	}
+
+	if err := updateBlog(c, id); err != nil {
+		log.Fatalf("Error updating blog: %v", err)
 	}
 
 	if err := readBlog(c, id); err != nil {
@@ -65,5 +74,32 @@ func readBlog(c blogpb.BlogServiceClient, id string) error {
 
 	blog := res.GetBlog()
 	log.Printf("Received ReadBlogResponse: %v", blog)
+	return nil
+}
+
+func updateBlog(c blogpb.BlogServiceClient, id string) error {
+	req := &blogpb.UpdateBlogRequest{
+		Blog: &blogpb.Blog{
+			Id:       id,
+			AuthorId: "Dillon Nys",
+			Title:    "Blog Post #1 (edited)",
+			Content:  "Some new content!",
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := c.UpdateBlog(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	st := res.GetStatus()
+	log.Printf("Received UpdateBlogResponse: %v", st)
+	if st != blogpb.UpdateBlogResponse_UPDATED {
+		return errors.New("Error updating the blog")
+	}
+
 	return nil
 }

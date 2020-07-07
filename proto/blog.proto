@@ -49,6 +49,26 @@ message ReadBlogResponse {
     }
 }
 
+// A request with the blog info to update
+message UpdateBlogRequest {
+    // The new blog data to replace the old data.
+    // It is important to specify the ID so that 
+    // the old blog can be located.
+    Blog blog = 1;
+}
+
+// A response after an update request is called.
+message UpdateBlogResponse {
+    // The status of the update operation.
+    UpdateStatus status = 1;
+
+    enum UpdateStatus {
+        UNKNOWN = 0;
+        NOT_UPDATED = 1;
+        UPDATED = 2;
+    }
+}
+
 // Service for interacting with the Blog DB using a CRUD-style API.
 service BlogService {
     // Create a blog in the database
@@ -56,4 +76,7 @@ service BlogService {
 
     // Read a blog from the database
     rpc ReadBlog(ReadBlogRequest) returns (ReadBlogResponse);
+
+    // Update a blog in the database
+    rpc UpdateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
 }

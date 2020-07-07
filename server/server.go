@@ -100,6 +100,40 @@ func (*server) ReadBlog(ctx context.Context, req *blogpb.ReadBlogRequest) (*blog
 	}, nil
 }
 
+func (*server) UpdateBlog(ctx context.Context, req *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
+	blog := req.GetBlog()
+	log.Printf("UpdateBlog: Invoked with blog %v", blog)
+
+	id := blog.GetId()
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
+	}
+
+	data := &blogItem{}
+	filter := bson.M{"_id": oid}
+
+	// Get the old doc from the DB
+	doc := collection.FindOne(ctx, filter)
+	if err := doc.Decode(data); err != nil {
+		return nil, status.Errorf(codes.NotFound, "Document with id %s not found: %v", id, err)
+	}
+
+	// Update variables on the document
+	data.AuthorID = blog.GetAuthorId()
+	data.Title = blog.GetTitle()
+	data.Content = blog.GetContent()
+
+	_, err = collection.ReplaceOne(ctx, filter, data)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Document update failed: %v", err)
+	}
+
+	return &blogpb.UpdateBlogResponse{
+		Status: blogpb.UpdateBlogResponse_UPDATED,
+	}, nil
+}
+
 func main() {
 	// If we crash the Go code, we get the filename and line number
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
