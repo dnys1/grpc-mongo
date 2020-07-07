@@ -2,7 +2,9 @@ syntax = "proto3";
 
 // Service for creating, reading, updating, and deleting Blog items.
 package blog;
-option go_package = "github.com/dnys1/grpc-mongo/server/model/blogpb";
+option go_package = "github.com/dnys1/grpc-mongo/internal/model/blogpb";
+
+import "google/api/annotations.proto";
 
 message Blog {
     string id = 1;
@@ -26,7 +28,7 @@ message CreateBlogResponse {
 // A request with the blog id to read from the database
 message ReadBlogRequest {
     // The blog's database identifier
-    string blog_id = 1;
+    string id = 1;
 }
 
 // A response with the blog item and a status code.
@@ -72,7 +74,7 @@ message UpdateBlogResponse {
 // A request to delete a blog from the database
 message DeleteBlogRequest {
     // The id of the blog to delete.
-    string blog_id = 1;
+    string id = 1;
 }
 
 // A response to a DeleteBlog call, with the status of the call.
@@ -99,17 +101,39 @@ message ListBlogsResponse {
 // Service for interacting with the Blog DB using a CRUD-style API.
 service BlogService {
     // Create a blog in the database
-    rpc CreateBlog (CreateBlogRequest) returns (CreateBlogResponse);
+    rpc CreateBlog (CreateBlogRequest) returns (CreateBlogResponse) {
+        option (google.api.http) = {
+            post: "/api/v1/blogs",
+            body: "*"
+        };
+    };
 
     // Read a blog from the database
-    rpc ReadBlog (ReadBlogRequest) returns (ReadBlogResponse);
+    rpc ReadBlog (ReadBlogRequest) returns (ReadBlogResponse) {
+        option (google.api.http) = {
+            get: "/api/v1/blogs/{id}"
+        };
+    };
 
     // Update a blog in the database
-    rpc UpdateBlog (UpdateBlogRequest) returns (UpdateBlogResponse);
+    rpc UpdateBlog (UpdateBlogRequest) returns (UpdateBlogResponse) {
+        option (google.api.http) = {
+            put: "/api/v1/blogs/{blog.id}",
+            body: "*"
+        };
+    };
 
     // Delete a blog from the database
-    rpc DeleteBlog (DeleteBlogRequest) returns (DeleteBlogResponse);
+    rpc DeleteBlog (DeleteBlogRequest) returns (DeleteBlogResponse) {
+        option (google.api.http) = {
+            delete: "/api/v1/blogs/{id}"
+        };
+    };
 
     // List the blogs on the server
-    rpc ListBlogs (ListBlogsRequest) returns (stream ListBlogsResponse);
+    rpc ListBlogs (ListBlogsRequest) returns (stream ListBlogsResponse) {
+        option (google.api.http) = {
+            get: "/api/v1/blogs"
+        };
+    };
 }

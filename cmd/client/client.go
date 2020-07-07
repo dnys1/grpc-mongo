@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/dnys1/grpc-mongo/server/model/blogpb"
+	"github.com/dnys1/grpc-mongo/internal/model/blogpb"
 	"google.golang.org/grpc"
 )
 
@@ -70,7 +70,7 @@ func createBlog(c blogpb.BlogServiceClient) (string, error) {
 
 func readBlog(c blogpb.BlogServiceClient, id string) error {
 	req := &blogpb.ReadBlogRequest{
-		BlogId: id,
+		Id: id,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -115,7 +115,7 @@ func updateBlog(c blogpb.BlogServiceClient, id string) error {
 
 func deleteBlog(c blogpb.BlogServiceClient, id string) error {
 	req := &blogpb.DeleteBlogRequest{
-		BlogId: id,
+		Id: id,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
