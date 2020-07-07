@@ -134,6 +134,35 @@ func (*server) UpdateBlog(ctx context.Context, req *blogpb.UpdateBlogRequest) (*
 	}, nil
 }
 
+func (*server) DeleteBlog(ctx context.Context, req *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
+	id := req.GetBlogId()
+	log.Printf("DeleteBlog: Invoked with id %v", id)
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
+	}
+
+	filter := bson.M{"_id": oid}
+
+	res, err := collection.DeleteOne(ctx, filter)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Error deleting document: %v", err)
+	}
+
+	if res.DeletedCount == 0 {
+		log.Printf("DeleteBlog: Blog not deleted.")
+		return &blogpb.DeleteBlogResponse{
+			Status: blogpb.DeleteBlogResponse_NOT_DELETED,
+		}, nil
+	}
+
+	log.Printf("DeleteBlog: Blog successfully deleted.")
+	return &blogpb.DeleteBlogResponse{
+		Status: blogpb.DeleteBlogResponse_DELETED,
+	}, nil
+}
+
 func main() {
 	// If we crash the Go code, we get the filename and line number
 	log.SetFlags(log.LstdFlags | log.Lshortfile)

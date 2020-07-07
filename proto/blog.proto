@@ -69,14 +69,35 @@ message UpdateBlogResponse {
     }
 }
 
+// A request to delete a blog from the database
+message DeleteBlogRequest {
+    // The id of the blog to delete.
+    string blog_id = 1;
+}
+
+// A response to a DeleteBlog call, with the status of the call.
+message DeleteBlogResponse {
+    // The status of the delete operation.
+    DeleteStatus status = 1;
+
+    enum DeleteStatus {
+        UNKNOWN = 0;
+        NOT_DELETED = 1;
+        DELETED = 2;
+    }
+}
+
 // Service for interacting with the Blog DB using a CRUD-style API.
 service BlogService {
     // Create a blog in the database
     rpc CreateBlog (CreateBlogRequest) returns (CreateBlogResponse);
 
     // Read a blog from the database
-    rpc ReadBlog(ReadBlogRequest) returns (ReadBlogResponse);
+    rpc ReadBlog (ReadBlogRequest) returns (ReadBlogResponse);
 
     // Update a blog in the database
-    rpc UpdateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
+    rpc UpdateBlog (UpdateBlogRequest) returns (UpdateBlogResponse);
+
+    // Delete a blog from the database
+    rpc DeleteBlog (DeleteBlogRequest) returns (DeleteBlogResponse);
 }

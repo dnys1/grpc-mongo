@@ -35,6 +35,14 @@ func main() {
 	if err := readBlog(c, id); err != nil {
 		log.Fatalf("Error reading blog: %v", err)
 	}
+
+	if err := deleteBlog(c, id); err != nil {
+		log.Fatalf("Error updating blog: %v", err)
+	}
+
+	if err := readBlog(c, id); err != nil {
+		log.Fatalf("Error reading blog: %v", err)
+	}
 }
 
 func createBlog(c blogpb.BlogServiceClient) (string, error) {
@@ -99,6 +107,28 @@ func updateBlog(c blogpb.BlogServiceClient, id string) error {
 	log.Printf("Received UpdateBlogResponse: %v", st)
 	if st != blogpb.UpdateBlogResponse_UPDATED {
 		return errors.New("Error updating the blog")
+	}
+
+	return nil
+}
+
+func deleteBlog(c blogpb.BlogServiceClient, id string) error {
+	req := &blogpb.DeleteBlogRequest{
+		BlogId: id,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := c.DeleteBlog(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	st := res.GetStatus()
+	log.Printf("Received DeleteBlogResponse: %v", st)
+	if st != blogpb.DeleteBlogResponse_DELETED {
+		return errors.New("Error deleting blog")
 	}
 
 	return nil
