@@ -5,9 +5,8 @@ import (
 	"log"
 
 	"github.com/dnys1/grpc-mongo/internal/model/blogpb"
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/dnys1/grpc-mongo/internal/server/database"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -22,15 +21,15 @@ type blogItem struct {
 
 // Server is the interface for interacting with the database.
 type Server struct {
-	// The master database collection from MongoDB
-	Collection *mongo.Collection
+	// The database for the server
+	db database.Database
 	blogpb.UnimplementedBlogServiceServer
 }
 
 // NewServer creates a new Server object.
-func NewServer(client *mongo.Client) *Server {
+func NewServer(db database.Database) *Server {
 	return &Server{
-		Collection: client.Database("mydb").Collection("blog"),
+		db: db,
 	}
 }
 
@@ -39,31 +38,15 @@ func (s *Server) CreateBlog(ctx context.Context, req *blogpb.CreateBlogRequest) 
 	blog := req.GetBlog()
 	log.Printf("CreateBlog: Invoked with blog item %v", blog)
 
-	data := blogItem{
-		AuthorID: blog.GetAuthorId(),
-		Title:    blog.GetTitle(),
-		Content:  blog.GetContent(),
-	}
-
-	res, err := s.Collection.InsertOne(ctx, data)
+	res, err := s.db.CreateBlog(ctx, blog)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Error inserting document: %v", data, err)
+		return nil, status.Errorf(codes.Internal, "Error inserting document: %v", err)
 	}
 
-	oid, ok := res.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "Error converting to OID: %v", err)
-	}
-
-	log.Printf("CreateBlog: Blog item successfully created (id %s)", oid.Hex())
+	log.Printf("CreateBlog: Blog item successfully created (id %s)", res.GetId())
 
 	return &blogpb.CreateBlogResponse{
-		Blog: &blogpb.Blog{
-			Id:       oid.Hex(),
-			AuthorId: blog.GetAuthorId(),
-			Title:    blog.GetTitle(),
-			Content:  blog.GetContent(),
-		},
+		Blog: res,
 	}, nil
 }
 
@@ -72,28 +55,15 @@ func (s *Server) ReadBlog(ctx context.Context, req *blogpb.ReadBlogRequest) (*bl
 	id := req.GetId()
 	log.Printf("ReadBlog: Invoked with id %s", id)
 
-	oid, err := primitive.ObjectIDFromHex(id)
+	res, err := s.db.ReadBlog(ctx, id)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
-	}
-
-	data := &blogItem{}
-	filter := bson.M{"_id": oid}
-
-	doc := s.Collection.FindOne(ctx, filter)
-	if err := doc.Decode(data); err != nil {
-		return nil, status.Errorf(codes.NotFound, "Document with id %s not found: %v", id, err)
+		return nil, status.Errorf(codes.Internal, "Error retrieving document: %v", err)
 	}
 
 	log.Println("ReadBlog: Blog successfully found")
 
 	return &blogpb.ReadBlogResponse{
-		Blog: &blogpb.Blog{
-			Id:       id,
-			AuthorId: data.AuthorID,
-			Title:    data.Title,
-			Content:  data.Content,
-		},
+		Blog: res,
 	}, nil
 }
 
@@ -102,33 +72,13 @@ func (s *Server) UpdateBlog(ctx context.Context, req *blogpb.UpdateBlogRequest) 
 	blog := req.GetBlog()
 	log.Printf("UpdateBlog: Invoked with blog %v", blog)
 
-	id := blog.GetId()
-	oid, err := primitive.ObjectIDFromHex(id)
+	res, err := s.db.UpdateBlog(ctx, blog)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
-	}
-
-	data := &blogItem{}
-	filter := bson.M{"_id": oid}
-
-	// Get the old doc from the DB
-	doc := s.Collection.FindOne(ctx, filter)
-	if err := doc.Decode(data); err != nil {
-		return nil, status.Errorf(codes.NotFound, "Document with id %s not found: %v", id, err)
-	}
-
-	// Update variables on the document
-	data.AuthorID = blog.GetAuthorId()
-	data.Title = blog.GetTitle()
-	data.Content = blog.GetContent()
-
-	_, err = s.Collection.ReplaceOne(ctx, filter, data)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Document update failed: %v", err)
+		return nil, status.Errorf(codes.Internal, "Error updating document: %v", err)
 	}
 
 	return &blogpb.UpdateBlogResponse{
-		Status: blogpb.UpdateBlogResponse_UPDATED,
+		Status: res,
 	}, nil
 }
 
@@ -137,28 +87,13 @@ func (s *Server) DeleteBlog(ctx context.Context, req *blogpb.DeleteBlogRequest) 
 	id := req.GetId()
 	log.Printf("DeleteBlog: Invoked with id %v", id)
 
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Error converting from OID: %v", err)
-	}
-
-	filter := bson.M{"_id": oid}
-
-	res, err := s.Collection.DeleteOne(ctx, filter)
+	res, err := s.db.DeleteBlog(ctx, id)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Error deleting document: %v", err)
 	}
 
-	if res.DeletedCount == 0 {
-		log.Printf("DeleteBlog: Blog not deleted.")
-		return &blogpb.DeleteBlogResponse{
-			Status: blogpb.DeleteBlogResponse_NOT_DELETED,
-		}, nil
-	}
-
-	log.Printf("DeleteBlog: Blog successfully deleted.")
 	return &blogpb.DeleteBlogResponse{
-		Status: blogpb.DeleteBlogResponse_DELETED,
+		Status: res,
 	}, nil
 }
 
@@ -166,29 +101,8 @@ func (s *Server) DeleteBlog(ctx context.Context, req *blogpb.DeleteBlogRequest) 
 func (s *Server) ListBlogs(req *blogpb.ListBlogsRequest, stream blogpb.BlogService_ListBlogsServer) error {
 	log.Println("ListBlog: Invoked with no parameters")
 
-	cur, err := s.Collection.Find(context.Background(), bson.D{})
-	if err != nil {
-		return status.Errorf(codes.Internal, "Error listing blogs: %v", err)
-	}
-	defer cur.Close(context.Background())
-
-	for cur.Next(context.Background()) {
-		data := &blogItem{}
-		if err := cur.Decode(data); err != nil {
-			return status.Errorf(codes.Internal, "Error decoding data: %v", err)
-		}
-
-		blog := &blogpb.Blog{
-			Id:       data.ID.Hex(),
-			AuthorId: data.AuthorID,
-			Title:    data.Title,
-			Content:  data.Content,
-		}
-		stream.Send(&blogpb.ListBlogsResponse{Blog: blog})
-	}
-
-	if err := cur.Err(); err != nil {
-		return status.Errorf(codes.Internal, "Error in database lookup: %v", err)
+	if err := s.db.ListBlogs(stream); err != nil {
+		return status.Errorf(codes.Internal, "Error listing documents: %v", err)
 	}
 
 	return nil

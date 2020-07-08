@@ -8,17 +8,13 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/dnys1/grpc-mongo/internal/gateway"
 	"github.com/dnys1/grpc-mongo/internal/model/blogpb"
 	"github.com/dnys1/grpc-mongo/internal/server"
+	db "github.com/dnys1/grpc-mongo/internal/server/database/mongo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var (
@@ -37,30 +33,22 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Create MongoDB client
-	mongoEndpoint := fmt.Sprintf("mongodb://%s:%d", *dbHost, *dbPort)
-	log.Printf("Connecting to MongoDB at %s ...", mongoEndpoint)
-	client, err := mongo.NewClient(options.Client().ApplyURI(mongoEndpoint).SetConnectTimeout(30 * time.Second))
+	db, err := db.New(&db.MongoDatabaseOptions{
+		Host: *dbHost,
+		Port: *dbPort,
+	})
 	if err != nil {
-		log.Fatalf("Error instantiating MongoDB client: %v", err)
+		log.Fatalf("Error creating database: %v", err)
 	}
-
-	// Connect to MongoDB client
-	if err = client.Connect(context.Background()); err != nil {
-		log.Fatalf("Error connecting to MongoDB instance: %v", err)
-	}
+	log.Printf("Connecting to database at %s ...", db.Endpoint())
 
 	defer func() {
-		log.Println("Closing MongoDB connection...")
-		if err = client.Disconnect(context.Background()); err != nil {
-			log.Fatalf("Error closing MongoDB connection: %v", err)
+		log.Println("Closing database connection...")
+		if err = db.Disconnect(context.Background()); err != nil {
+			log.Fatalf("Error closing database connection: %v", err)
 		}
 		log.Println("MongoDB connection closed successfully.")
 	}()
-
-	// Ping the MongoDB server
-	if err := client.Ping(context.Background(), readpref.Primary()); err != nil {
-		log.Fatalf("Error pinging the MongoDB instance: %v", err)
-	}
 
 	// Connect to gRPC service
 	log.Printf("Starting gRPC server on port %d ...", *grpcPort)
@@ -71,7 +59,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	blogpb.RegisterBlogServiceServer(grpcServer, server.NewServer(client))
+	blogpb.RegisterBlogServiceServer(grpcServer, server.NewServer(db))
 
 	// Register reflection service on gRPC server
 	reflection.Register(grpcServer)
