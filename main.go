@@ -32,6 +32,8 @@ func main() {
 	// If we crash the Go code, we get the filename and line number
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	ctx := context.Background()
+
 	// Create MongoDB client
 	db, err := db.New(&db.MongoDatabaseOptions{
 		Host: *dbHost,
@@ -41,11 +43,14 @@ func main() {
 		log.Fatalf("Error creating database: %v", err)
 	}
 	log.Printf("Connecting to database at %s ...", db.Endpoint())
+	if err := db.Connect(ctx); err != nil {
+		log.Fatal(err)
+	}
 
 	defer func() {
 		log.Println("Closing database connection...")
-		if err = db.Disconnect(context.Background()); err != nil {
-			log.Fatalf("Error closing database connection: %v", err)
+		if err = db.Disconnect(ctx); err != nil {
+			log.Fatal(err)
 		}
 		log.Println("MongoDB connection closed successfully.")
 	}()

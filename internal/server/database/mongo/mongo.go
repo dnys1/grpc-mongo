@@ -65,7 +65,7 @@ func (db *MongoDatabase) Endpoint() string {
 func (db *MongoDatabase) Connect(ctx context.Context) error {
 	// Connect to MongoDB client
 	if err := db.client.Connect(ctx); err != nil {
-		errors.Wrap(err, "Error connecting to MongoDB instance")
+		return errors.Wrap(err, "Error connecting to MongoDB instance")
 	}
 
 	// Ping the MongoDB server
