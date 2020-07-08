@@ -3,9 +3,9 @@ services:
     blog_service:
         image: dillonnys/grpc-mongo:v1.0.0
         ports: 
-            - 50051:50051
-            - 8081:8081
+            - "50051:50051"
+            - "8081:8081"
     blog_db:
         image: mongo:4.2
         ports:
-            - 27017:27017
+            - "27017"

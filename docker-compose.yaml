@@ -5,11 +5,11 @@ services:
         build:
             context: .
         ports: 
-            - 50051:50051
-            - 8081:8081
+            - "50051:50051"
+            - "8081:8081"
     blog_db:
         image: mongo:4.2
         volumes:
             - ~/mongo/data/db:/data/db
-        ports:
-            - 27017:27017
+        expose:
+            - "27017"
